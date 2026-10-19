@@ -18,33 +18,40 @@ export default function ComparePage() {
   const { ids } = router.query;
 
   const [projects, setProjects] = useState<ClimateProject[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  // The initial load is tracked by comparing the ids the projects were
+  // loaded for to the current ids query param (derived, rather than toggled
+  // synchronously inside the effect, which triggers a cascading render).
+  const [loadedForKey, setLoadedForKey] = useState<string | null>(null);
+
+  const idsKey = typeof ids === "string" ? ids : null;
+  const idList = idsKey ? idsKey.split(",").slice(0, 3).map((id) => id.trim()).filter(Boolean) : [];
+
+  const loading = idsKey === null ? true : idList.length > 0 && loadedForKey !== idsKey;
+  const error = idsKey !== null && idList.length === 0
+    ? "No valid project IDs provided. Use ?ids=uuid1,uuid2,uuid3"
+    : fetchError;
 
   useEffect(() => {
-    if (!ids || typeof ids !== "string") return;
-
-    const idList = ids.split(",").slice(0, 3).map((id) => id.trim()).filter(Boolean);
-    if (idList.length === 0) {
-      setError("No valid project IDs provided. Use ?ids=uuid1,uuid2,uuid3");
-      setLoading(false);
-      return;
-    }
+    if (idList.length === 0) return;
 
     Promise.all(idList.map((id) => fetchProject(id)))
       .then((results) => {
         setProjects(results);
-        setLoading(false);
+        setFetchError(null);
       })
       .catch(() => {
-        setError("Failed to load one or more projects. Check the IDs and try again.");
-        setLoading(false);
-      });
-  }, [ids]);
+        setFetchError("Failed to load one or more projects. Check the IDs and try again.");
+      })
+      .finally(() => setLoadedForKey(idsKey));
+    // idList is a pure derivation of idsKey (already a dep) recomputed fresh
+    // every render; adding it here would refire this effect every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey]);
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-pulse">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-pulse motion-reduce:animate-none">
         <div className="h-8 bg-forest-200 rounded w-1/3 mb-6" />
         <div className="space-y-4">
           {[1, 2].map((i) => (
@@ -66,7 +73,7 @@ export default function ComparePage() {
           <h2 className="font-display text-xl font-semibold text-forest-900 mb-2">
             Could not load projects
           </h2>
-          <p className="text-[#5a7a5a] dark:text-[#8aaa8a] text-sm font-body mb-6">
+          <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] text-sm font-body mb-6">
             {error}
           </p>
           <Link
@@ -91,10 +98,10 @@ export default function ComparePage() {
           <h2 className="font-display text-xl font-semibold text-forest-900 mb-2">
             Compare Projects
           </h2>
-          <p className="text-[#5a7a5a] dark:text-[#8aaa8a] text-sm font-body mb-4">
+          <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] text-sm font-body mb-4">
             Add project IDs to the URL to compare them side by side.
           </p>
-          <p className="text-xs text-[#8aaa8a] dark:text-forest-300 font-mono bg-forest-50 rounded-lg p-3 inline-block">
+          <p className="text-xs text-[var(--text-tertiary)] dark:text-forest-300 font-mono bg-forest-50 rounded-lg p-3 inline-block">
             /compare?ids=uuid1,uuid2,uuid3
           </p>
         </div>
@@ -103,7 +110,7 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-fade-in motion-reduce:animate-none">
       <Head>
         <title>
           Compare {projects.map((p) => p.name).join(" vs ")} — Stellar GreenPay
@@ -112,11 +119,40 @@ export default function ComparePage() {
           name="description"
           content={`Side-by-side comparison of ${projects.map((p) => p.name).join(", ")}`}
         />
+        <meta
+          property="og:title"
+          content={`Compare ${projects.map((p) => p.name).join(" vs ")} — Stellar GreenPay`}
+        />
+        <meta
+          property="og:description"
+          content={`Side-by-side comparison of ${projects.map((p) => p.name).join(", ")}`}
+        />
+        <meta
+          property="og:url"
+          content={typeof window !== 'undefined' ? window.location.href : ''}
+        />
+        <meta
+          property="og:image"
+          content={projects[0]?.imageUrl || '/api/og/default'}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content={`Compare ${projects.map((p) => p.name).join(" vs ")} — Stellar GreenPay`}
+        />
+        <meta
+          name="twitter:description"
+          content={`Side-by-side comparison of ${projects.map((p) => p.name).join(", ")}`}
+        />
+        <meta
+          name="twitter:image"
+          content={projects[0]?.imageUrl || '/api/og/default'}
+        />
       </Head>
 
       <Link
         href="/projects"
-        className="inline-flex items-center gap-1 text-sm text-[#5a7a5a] dark:text-[#8aaa8a] hover:text-forest-700 transition-colors mb-6 font-body"
+        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] dark:text-[#8aaa8a] hover:text-forest-700 transition-colors mb-6 font-body"
       >
         ← Back to Projects
       </Link>

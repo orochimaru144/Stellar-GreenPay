@@ -1,49 +1,22 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+/**
+ * lib/themeContext.tsx
+ *
+ * @deprecated Use `@/lib/theme` directly.
+ *
+ * This file is a thin re-export shim kept only for backwards-compatibility
+ * while any legacy imports are migrated. It re-exports every public symbol
+ * from the canonical three-state theme module so existing `import { … }
+ * from "@/lib/themeContext"` statements continue to compile without error.
+ *
+ * Do NOT add new code here. Update your import path to `@/lib/theme` and
+ * remove this file once all consumers have been migrated.
+ */
 
-type Theme = "light" | "dark";
-
-interface ThemeContextValue {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: "light",
-  toggleTheme: () => {},
-});
-
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem("theme");
-  if (stored === "dark" || stored === "light") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
-    const initial = getInitialTheme();
-    setTheme(initial);
-    document.documentElement.classList.toggle("dark", initial === "dark");
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme((prev) => {
-      const next = prev === "light" ? "dark" : "light";
-      document.documentElement.classList.toggle("dark", next === "dark");
-      localStorage.setItem("theme", next);
-      return next;
-    });
-  };
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-export function useTheme(): ThemeContextValue {
-  return useContext(ThemeContext);
-}
+export {
+  ThemeProvider,
+  useTheme,
+  applyThemeToDocument,
+  THEME_STORAGE_KEY,
+  type ThemeMode,
+  type EffectiveTheme,
+} from "@/lib/theme";

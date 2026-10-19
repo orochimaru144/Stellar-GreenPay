@@ -19,12 +19,55 @@ const LEAFLET_TILE_SOURCES = [
 // unpkg.com serves the Leaflet CSS loaded dynamically in ProjectMap.tsx.
 const UNPKG = 'https://unpkg.com'
 
-function buildCsp(nonce: string, isWidget: boolean): string {
+// GitHub avatars rendered on the /contributors timeline
+const GITHUB_AVATARS = 'https://avatars.githubusercontent.com'
+
+/**
+ * Origin of the backend API configured for this deployment.
+ *
+ * Same-origin deployments are already covered by `'self'`; a deployment that
+ * points NEXT_PUBLIC_API_URL at another host (e.g. api.stellar-greenpay.app)
+ * needs that origin in connect-src or every fetch is blocked by the enforced CSP.
+ */
+export function apiOrigins(): string[] {
+  const raw = process.env.NEXT_PUBLIC_API_URL
+  if (!raw) return []
+  try {
+    const { protocol, origin } = new URL(raw)
+    return protocol === 'http:' || protocol === 'https:' ? [origin] : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Where browser-side Sentry events are sent.
+ *
+ * sentry.client.config.js posts straight to the DSN host (no tunnel route is
+ * configured), so that host must be in connect-src or the enforced CSP silently
+ * drops every client event. Self-hosted DSNs are covered by parsing the DSN;
+ * without one, allow Sentry's SaaS ingest domains.
+ */
+export function sentryOrigins(): string[] {
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN
+  if (dsn) {
+    try {
+      return [new URL(dsn).origin]
+    } catch {
+      // Malformed DSN: fall through to the SaaS allowlist.
+    }
+  }
+  return ['https://*.ingest.sentry.io', 'https://*.ingest.us.sentry.io']
+}
+
+export function buildCsp(nonce: string, isWidget: boolean): string {
   // API origin: 'self' covers same-origin deploys; localhost:4000 covers local dev.
   const connectSrc = [
     "'self'",
     STELLAR_CONNECT,
     'https://api.coingecko.com',
+    ...apiOrigins(),
+    ...sentryOrigins(),
     ...(process.env.NODE_ENV === 'development' ? ['http://localhost:4000'] : []),
   ].join(' ')
 
@@ -38,7 +81,8 @@ function buildCsp(nonce: string, isWidget: boolean): string {
     "font-src 'self' https://fonts.gstatic.com",
     // OSM tile images are loaded as <img> elements by Leaflet TileLayer.
     // Leaflet marker icons use data: URIs (our inline SVG divIcon).
-    `img-src 'self' data: blob: ${LEAFLET_TILE_SOURCES}`,
+    // GitHub avatars are loaded on the /contributors timeline.
+    `img-src 'self' data: blob: ${LEAFLET_TILE_SOURCES} ${GITHUB_AVATARS}`,
     `connect-src ${connectSrc}`,
     "object-src 'none'",
     "base-uri 'self'",

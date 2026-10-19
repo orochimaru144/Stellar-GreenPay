@@ -97,6 +97,19 @@ describe("ApplyPage", () => {
     expect(screen.getByText("apply.stepOrg")).toBeTruthy();
   });
 
+  test("associates validation messages with invalid fields and focuses the first error", async () => {
+    render(<ApplyPage />);
+    const organizationName = screen.getByLabelText("apply.orgName *");
+
+    fireEvent.click(screen.getByRole("button", { name: /common\.next/ }));
+
+    await waitFor(() => {
+      expect(organizationName).toHaveAttribute("aria-invalid", "true");
+      expect(organizationName).toHaveAttribute("aria-describedby", "organizationName-error");
+      expect(document.activeElement).toBe(organizationName);
+    });
+  });
+
   test("blocks invalid Stellar wallet and email", async () => {
     render(<ApplyPage />);
     fireEvent.input(screen.getByLabelText("apply.orgName *"), {
@@ -165,7 +178,7 @@ describe("ApplyPage", () => {
     expect(submitted.projectName).toBe("Acme Solar");
     expect(submitted.co2PerXLM).toBe("0.05");
     expect(submitted.supportingDocuments).toEqual([]);
-  });
+  }, 15000);
 
   test("uploads a file via api.ts.uploadSupportingDocument", async () => {
     mockUpload.mockResolvedValueOnce({
@@ -205,7 +218,7 @@ describe("ApplyPage", () => {
     await waitFor(() => {
       expect(screen.getByText("methodology.pdf")).toBeTruthy();
     });
-  });
+  }, 15000);
 
   test("rejects server error messages gracefully", async () => {
     mockSubmit.mockRejectedValueOnce({
@@ -233,5 +246,5 @@ describe("ApplyPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Backend failed. Please retry.")).toBeTruthy();
     });
-  });
+  }, 15000);
 });

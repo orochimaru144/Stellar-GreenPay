@@ -16,7 +16,7 @@ import { test, expect, type Page } from "@playwright/test";
 // ── Mock data ────────────────────────────────────────────────────────────────
 
 const PROJECT_ID = "8d9ac19b-52eb-42f7-80d9-19a88ba59e43";
-const MOCK_WALLET = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+const MOCK_WALLET = "GAF6M5I5RPS3KTU2RV77D6H47BLPNN52AUG22KSD4VEWLDBM7VDU6ZRZ";
 
 const MOCK_PROJECT = {
   id: PROJECT_ID,
@@ -41,12 +41,12 @@ const MOCK_PROJECT = {
 // ── Helper: mock all API routes the donate page may fetch ────────────────────
 
 async function mockDonatePageApi(page: Page, projectId = PROJECT_ID) {
-  await page.route(`**/api/projects/${projectId}`, (route) =>
-    route.fulfill({ json: { success: true, data: MOCK_PROJECT } })
-  );
-  // Blanket catch-all for any other /api/** calls
+  // Blanket catch-all for any other /api/** calls (first so specific route wins)
   await page.route("**/api/**", (route) =>
     route.fulfill({ json: { success: true, data: [] } })
+  );
+  await page.route(`**/api/**/projects/${projectId}`, (route) =>
+    route.fulfill({ json: { success: true, data: MOCK_PROJECT } })
   );
 }
 
@@ -60,6 +60,7 @@ test.describe("QR code donation link flow", () => {
 
     // Simulate scanning a QR code that encodes this URL
     await page.goto(`/donate/${PROJECT_ID}`);
+    await page.waitForLoadState("networkidle");
 
     await expect(
       page.getByRole("heading", { name: "Amazon Reforestation Initiative" })
@@ -74,7 +75,8 @@ test.describe("QR code donation link flow", () => {
     await page.goto(`/donate/${PROJECT_ID}?amount=50`);
 
     // The donate page renders a chip like "Donate 50 XLM" when presetAmount is set
-    await expect(page.getByText(/50.*XLM/i)).toBeVisible();
+    await expect(page.locator(".donate-card__amount-chip")).toBeVisible();
+    await expect(page.locator(".donate-card__amount-chip")).toContainText("50 XLM");
   });
 
   test("landing on the QR link without ?amount shows no preset amount chip", async ({
@@ -102,7 +104,7 @@ test.describe("QR code donation link flow", () => {
     page,
   }) => {
     const badId = "00000000-0000-0000-0000-000000000000";
-    await page.route(`**/api/projects/${badId}`, (route) =>
+    await page.route(`**/api/**/projects/${badId}`, (route) =>
       route.fulfill({ status: 404, json: { success: false, error: "Not found" } })
     );
 
