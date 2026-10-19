@@ -25,6 +25,7 @@ const mockUseLocalSearchParams = jest.fn(() => ({ id: 'proj-1' }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockRouterPush }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
+  useFocusEffect: (cb: () => void) => cb(),
   // The screen re-checks the active recurring donation whenever the route is
   // focused, so the mock has to invoke the callback on mount (matching
   // __tests__/accessibility.test.tsx).
@@ -49,6 +50,7 @@ jest.mock('expo-notifications', () => ({
 
 jest.mock('../utils/recurringDonations', () => ({
   loadRecurringDonations: jest.fn(),
+  cancelRecurringDonation: jest.fn(),
 }));
 
 import * as notifUtils from '../utils/notifications';
@@ -342,7 +344,10 @@ describe('ProjectDetailScreen – Follow button', () => {
       });
 
       expect(shareSpy).toHaveBeenCalledTimes(1);
-      const callArgs = shareSpy.mock.calls[0][0];
+      const callArgs = shareSpy.mock.calls[0][0] as {
+        title?: string;
+        message?: string;
+      };
       expect(callArgs.title).toBe(MOCK_PROJECT.name);
       expect(callArgs.message).toContain(MOCK_PROJECT.name);
       expect(callArgs.message).toContain(MOCK_PROJECT.description);
@@ -426,7 +431,7 @@ describe('ProjectDetailScreen – Issue #168 AC: every project can be viewed', (
   // we exercise the Updates card branch coverage as well as the always-on
   // fields. The IDs use a slugish format to prove the screen works for any
   // project key, not just the magic id "proj-1".
-  const PROJECTS = {
+  const PROJECTS: Record<string, typeof MOCK_PROJECT> = {
     'amazon-reforestation': {
       id: 'amazon-reforestation',
       name: 'Amazon Reforestation Initiative',
@@ -469,9 +474,18 @@ describe('ProjectDetailScreen – Issue #168 AC: every project can be viewed', (
   };
 
   // Helper: drive one specific project through the screen end-to-end and
-  // yield the result of assertions on the rendered tree.
-  async function renderProject(project: typeof MOCK_PROJECT) {
-    (axios.get as jest.Mock).mockResolvedValue({ data: { data: project } });
+  // yield the result of assertions on the rendered tree. The screen issues
+  // two GETs (`/api/projects/:id` and `/api/updates/:id`), so the mock is
+  // URL-aware rather than a blanket `mockResolvedValue`.
+  async function renderProject(
+    project: typeof MOCK_PROJECT,
+    updates: Array<Record<string, unknown>> = []
+  ) {
+    (axios.get as jest.Mock).mockImplementation((url: string) =>
+      url.includes('/api/updates/')
+        ? Promise.resolve({ data: { data: updates } })
+        : Promise.resolve({ data: { data: project } })
+    );
     const screen = await renderWithTheme(<ProjectDetailScreen />);
     await waitFor(() => expect(screen.getByText(project.name)).toBeTruthy());
     return screen;
@@ -488,31 +502,38 @@ describe('ProjectDetailScreen – Issue #168 AC: every project can be viewed', (
   // see file header: fake timers removed (broke waitFor() polling)
 
   it('renders the required fields (name, description, progress, CO₂) for project proj-1', async () => {
-    const renderer = await renderProject(PROJECTS['amazon-reforestation']);
+    const p = PROJECTS['amazon-reforestation'];
+    const renderer = await renderProject(p);
 
-    await waitFor(() =>
-      expect(renderer.getByText(PROJECTS['amazon-reforestation'].name)).toBeTruthy()
-    );
-    expect(
-      renderer.getByText(PROJECTS['amazon-reforestation'].description)
-    ).toBeTruthy();
+    await waitFor(() => expect(renderer.getByText(p.name)).toBeTruthy());
+    expect(renderer.getByText(p.description)).toBeTruthy();
     expect(renderer.getByText(/Fundraising Progress/i)).toBeTruthy();
-    expect(
-      renderer.getByText(
-        `${PROJECTS['amazon-reforestation'].co2OffsetKg.toLocaleString()} kg CO₂ offset`
-      )
-    ).toBeTruthy();
+    // The stats card renders the CO₂ figure and its unit label as two Text
+    // nodes (`co2OffsetKg.toFixed(0)` + "kg CO₂").
+    expect(renderer.getByText(`${p.co2OffsetKg.toFixed(0)}`)).toBeTruthy();
+    // RNTL 14 treats a multi-match text query as an error, and the CO₂ unit
+    // appears in both the stats card and the impact summary.
+    expect(renderer.getAllByText(/kg CO₂/).length).toBeGreaterThan(0);
   });
 
-  it('renders the Updates card with donor count and status info for any project', async () => {
-    const renderer = await renderProject(PROJECTS['amazon-reforestation']);
+  it('renders the donor stats and the Latest Updates card for any project', async () => {
+    const p = PROJECTS['amazon-reforestation'];
+    const renderer = await renderProject(p, [
+      {
+        id: 'update-1',
+        title: 'Nursery Phase 2 complete',
+        body: '147 donors have contributed to the seedling nursery.',
+        createdAt: '2026-01-05T00:00:00.000Z',
+      },
+    ]);
 
-    // Match the 📰 emoji prefix to disambiguate from the
-    // "🔔 Follow for Updates" button which also contains the
-    // word "Updates".
-    expect(await renderer.findByText(/📰 Updates/)).toBeTruthy();
-    expect(await renderer.findByText(/147 donors have contributed/i)).toBeTruthy();
-    expect(await renderer.findByText(/Project active/i)).toBeTruthy();
+    expect(await renderer.findByText('Latest Updates')).toBeTruthy();
+    // The donor count also appears in the update body, so allow multiple hits.
+    expect(
+      (await renderer.findAllByText(/147 donors have contributed/i)).length
+    ).toBeGreaterThan(0);
+    // Donor count from the project payload is surfaced in the stats card.
+    expect(await renderer.findByText(`${p.donorCount}`)).toBeTruthy();
   });
 
   it('loads and renders the ocean cleanup project (different id, category)', async () => {
@@ -534,14 +555,23 @@ describe('ProjectDetailScreen – Issue #168 AC: every project can be viewed', (
 
   it('loads and renders the completed solar village project, including the "Goal fully funded" update', async () => {
     const p = PROJECTS['solar-village-completed'];
-    (axios.get as jest.Mock).mockResolvedValue({ data: { data: p } });
+    const renderer = await renderProject(p, [
+      {
+        id: 'update-final',
+        title: 'Goal fully funded',
+        body: '312 donors have hit the 8000 XLM goal.',
+        createdAt: '2026-02-01T00:00:00.000Z',
+      },
+    ]);
 
-    const renderer = await renderWithTheme(<ProjectDetailScreen />);
-    expect(await renderer.findByText(p.name)).toBeTruthy();
-    expect(await renderer.findByText(/Goal fully funded/i)).toBeTruthy();
     expect(
-      await renderer.findByText(/312 donors have hit the 8000 XLM goal/i)
-    ).toBeTruthy();
+      (await renderer.findAllByText(/Goal fully funded/i)).length
+    ).toBeGreaterThan(0);
+    expect(
+      (await renderer.findAllByText(/312 donors have hit the 8000 XLM goal/i)).length
+    ).toBeGreaterThan(0);
+    // 100 % funded: the progress block reports the completed ratio.
+    expect(await renderer.findByText(/100% complete/)).toBeTruthy();
   });
 
   it('requests the project detail from /api/projects/:id with the id from the route', async () => {

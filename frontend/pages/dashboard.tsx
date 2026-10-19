@@ -13,7 +13,7 @@ import ReferralSection from "@/components/ReferralSection";
 import { fetchProfile, fetchDonorHistory, fetchProjects, fetchMyTeam, createTeam, joinTeam, exportDonationHistoryCsv } from "@/lib/api";
 import { getDueMonthlySubscriptions } from "@/lib/monthlyGiving";
 import { getXLMBalance, getFriendBotFunding, NETWORK } from "@/lib/stellar";
-import { formatXLM, formatCO2, timeAgo, shortenAddress, badgeEmoji, badgeLabel, calculateStreak } from "@/utils/format";
+import { formatAmount, formatXLM, formatCO2, timeAgo, shortenAddress, badgeEmoji, badgeLabel, calculateStreak } from "@/utils/format";
 import { explorerUrl } from "@/lib/stellar";
 import type { DonorProfile, Donation, ClimateProject, MonthlySubscription, Team } from "@/utils/types";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -140,7 +140,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
       <div className="text-center mb-10">
         <h1 className="font-display text-3xl font-bold text-forest-900 mb-3">My Impact</h1>
-        <p className="text-[#5a7a5a] dark:text-[#8aaa8a] font-body">Connect your wallet to see your donation history and impact</p>
+        <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] font-body">Connect your wallet to see your donation history and impact</p>
       </div>
       <WalletConnect onConnect={onConnect} />
     </div>
@@ -295,7 +295,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-fade-in motion-reduce:animate-none">
 
       {pendingRating && publicKey && (
         <ProjectRating
@@ -311,7 +311,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
         <div>
           <h1 className="font-display text-3xl font-bold text-forest-900 mb-1">My Impact</h1>
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" />
             <span className="address-tag">{shortenAddress(publicKey)}</span>
           </div>
         </div>
@@ -382,7 +382,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           <div key={stat.label} className="card text-center shadow-sm border border-forest-100/50">
             <p className="text-2xl mb-2">{stat.icon}</p>
             <p className="font-display font-bold text-forest-900 text-lg leading-tight">{loading ? "..." : stat.value}</p>
-            <p className="text-xs text-[#8aaa8a] dark:text-forest-300 mt-1 font-body uppercase tracking-wider font-bold opacity-60">{stat.label}</p>
+            <p className="text-xs text-[var(--text-tertiary)] dark:text-forest-300 mt-1 font-body uppercase tracking-wider font-bold opacity-60">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -391,13 +391,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
       <div className="flex border-b border-forest-100 mb-6">
         <button
           onClick={() => setActiveTab('impact')}
-          className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 ${activeTab === 'impact' ? 'border-forest-500 text-forest-900' : 'border-transparent text-[#8aaa8a] dark:text-forest-300 hover:text-forest-600'}`}
+          className={`px-6 py-3 text-sm font-semibold transition-all motion-reduce:transition-none border-b-2 ${activeTab === 'impact' ? 'border-forest-500 text-forest-900' : 'border-transparent text-[var(--text-tertiary)] dark:text-forest-300 hover:text-forest-600'}`}
         >
           My Impact
         </button>
         <button
           onClick={() => setActiveTab('saved')}
-          className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${activeTab === 'saved' ? 'border-forest-500 text-forest-900' : 'border-transparent text-[#8aaa8a] dark:text-forest-300 hover:text-forest-600'}`}
+          className={`px-6 py-3 text-sm font-semibold transition-all motion-reduce:transition-none border-b-2 flex items-center gap-2 ${activeTab === 'saved' ? 'border-forest-500 text-forest-900' : 'border-transparent text-[var(--text-tertiary)] dark:text-forest-300 hover:text-forest-600'}`}
         >
           Saved Projects
           {wishlist.length > 0 && (
@@ -407,7 +407,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
       </div>
 
       {activeTab === 'impact' ? (
-        <div className="space-y-8 animate-slide-up">
+        <div className="space-y-8 animate-slide-up motion-reduce:animate-none">
           {/* Referral Section */}
           <ReferralSection publicKey={publicKey} />
 
@@ -416,7 +416,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="font-display text-xl font-bold text-forest-900">Your Impact Certificate</h2>
-                <p className="text-sm text-[#5a7a5a] dark:text-[#8aaa8a] font-body mt-1">
+                <p className="text-sm text-[var(--text-secondary)] dark:text-[#8aaa8a] font-body mt-1">
                   Download a PDF-ready certificate or share it on social media.
                 </p>
               </div>
@@ -430,13 +430,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 <button
                   onClick={handleDownloadCertificate}
                   disabled={certificateRendering || !showCertificate}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-forest-200 bg-forest-50 hover:bg-forest-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-forest-200 bg-forest-50 hover:bg-forest-100 transition-all motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {certificateRendering ? "Rendering…" : "Download Certificate"}
                 </button>
                 <button
                   onClick={handleShareCertificate}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-forest-200 bg-white hover:bg-forest-50 transition-all"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-forest-200 bg-white hover:bg-forest-50 transition-all motion-reduce:transition-none"
                 >
                   Share to Twitter
                 </button>
@@ -483,7 +483,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 ].map(m => (
                   <div
                     key={m.m}
-                    className={`flex flex-col items-center p-3 rounded-xl border transition-all ${streak.longest >= m.m ? 'bg-white/10 border-white/30' : 'bg-black/20 border-white/5 opacity-30'}`}
+                    className={`flex flex-col items-center p-3 rounded-xl border transition-all motion-reduce:transition-none ${streak.longest >= m.m ? 'bg-white/10 border-white/30' : 'bg-black/20 border-white/5 opacity-30'}`}
                     title={`${m.m} Month Milestone`}
                   >
                     <span className="text-xl mb-1">{m.emoji}</span>
@@ -508,7 +508,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             </h2>
 
             {teamLoading ? (
-              <div className="animate-pulse h-16 bg-forest-50 rounded-xl" />
+              <div className="animate-pulse motion-reduce:animate-none h-16 bg-forest-50 rounded-xl" />
             ) : myTeam ? (
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -669,7 +669,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     <span className="text-3xl">{badgeEmoji(badge.tier)}</span>
                     <div>
                       <p className="font-semibold text-forest-900 text-sm font-body">{badgeLabel(badge.tier)}</p>
-                      <p className="text-[10px] text-[#8aaa8a] dark:text-forest-300 font-body uppercase tracking-widest font-bold opacity-80">Earned {timeAgo(badge.earnedAt)}</p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] dark:text-forest-300 font-body uppercase tracking-widest font-bold opacity-80">Earned {timeAgo(badge.earnedAt)}</p>
                     </div>
                   </div>
                 ))}
@@ -699,12 +699,12 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             </div>
             {loading ? (
               <div className="space-y-3">
-                {[1, 2, 3].map(i => <div key={i} className="h-16 bg-forest-50 rounded-xl animate-pulse" />)}
+                {[1, 2, 3].map(i => <div key={i} className="h-16 bg-forest-50 rounded-xl animate-pulse motion-reduce:animate-none" />)}
               </div>
             ) : donations.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-4xl mb-3">🌱</p>
-                <p className="text-[#5a7a5a] dark:text-[#8aaa8a] mb-4 font-body">No donations yet</p>
+                <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] mb-4 font-body">No donations yet</p>
                 <Link href="/projects" className="btn-primary text-sm">Browse Projects →</Link>
               </div>
             ) : (
@@ -714,12 +714,12 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center text-lg flex-shrink-0">🌱</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-forest-900 font-body">Project donation</p>
-                      {d.message && <p className="text-xs text-[#5a7a5a] dark:text-[#8aaa8a] italic font-body truncate">&quot;{d.message}&quot;</p>}
-                      <p className="text-[10px] text-[#8aaa8a] dark:text-forest-300 font-body uppercase tracking-wider font-bold opacity-70">{timeAgo(d.createdAt)}</p>
+                      {d.message && <p className="text-xs text-[var(--text-secondary)] dark:text-[#8aaa8a] italic font-body truncate">&quot;{d.message}&quot;</p>}
+                      <p className="text-[10px] text-[var(--text-tertiary)] dark:text-forest-300 font-body uppercase tracking-wider font-bold opacity-70">{timeAgo(d.createdAt)}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-mono font-semibold text-forest-700 text-sm">
-                        {d.currency === "USDC" ? `$${parseFloat(d.amount || "0").toFixed(2)} USDC` : formatXLM(d.amountXLM || "0")}
+                        {d.currency === "USDC" ? `$${formatAmount(parseFloat(d.amount || "0"))} USDC` : formatXLM(d.amountXLM || "0")}
                       </p>
                       <a href={explorerUrl(d.transactionHash)} target="_blank" rel="noopener noreferrer"
                         className="text-[10px] text-forest-500 hover:text-forest-700 font-bold uppercase tracking-widest transition-colors">View tx ↗</a>
@@ -731,12 +731,12 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           </div>
         </div>
       ) : (
-        <div className="animate-slide-up">
+        <div className="animate-slide-up motion-reduce:animate-none">
           {savedProjects.length === 0 ? (
             <div className="card text-center py-20">
               <p className="text-5xl mb-4">❤️</p>
               <h2 className="text-xl font-display font-bold text-forest-900 mb-2">No saved projects yet</h2>
-              <p className="text-[#5a7a5a] dark:text-[#8aaa8a] mb-8 font-body">Save projects you&apos;re interested in to track their progress.</p>
+              <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] mb-8 font-body">Save projects you&apos;re interested in to track their progress.</p>
               <Link href="/projects" className="btn-primary text-sm">Explore Projects</Link>
             </div>
           ) : (

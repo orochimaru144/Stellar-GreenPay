@@ -3,6 +3,7 @@
  */
 "use strict";
 
+const logger = require("../logger");
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const FROM_ADDRESS   = process.env.EMAIL_FROM || "GreenPay <updates@greenpay.app>";
 const APP_URL        = process.env.APP_URL || "http://localhost:3000";
@@ -13,7 +14,7 @@ const APP_URL        = process.env.APP_URL || "http://localhost:3000";
  */
 async function sendUpdateNotifications({ project, update, emails }) {
   if (!RESEND_API_KEY) {
-    console.warn("[email] RESEND_API_KEY not set — skipping notifications");
+    logger.warn({ event: "email_api_key_missing" }, "[email] RESEND_API_KEY not set — skipping notifications");
     return;
   }
   if (!emails || emails.length === 0) return;
@@ -43,7 +44,7 @@ async function sendUpdateNotifications({ project, update, emails }) {
 
     if (!res.ok) {
       const body = await res.text();
-      console.error(`[email] Resend error (batch ${i / BATCH + 1}):`, body);
+      logger.error({ event: "email_resend_error", batch: i / BATCH + 1, body }, `[email] Resend error (batch ${i / BATCH + 1}): ${body}`);
     }
   }
 }
@@ -76,7 +77,8 @@ const ADMIN_NOTIFICATION_EMAIL =
 async function sendAdminVerificationNotification(request) {
   if (!RESEND_API_KEY) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn(
+      logger.warn(
+        { event: "email_api_key_missing" },
         "[email] RESEND_API_KEY not set — skipping admin verification notification",
       );
     }
@@ -108,7 +110,7 @@ async function sendAdminVerificationNotification(request) {
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error("[email] Resend error (verification notification):", errBody);
+    logger.error({ event: "email_resend_verification_error", errBody }, `[email] Resend error (verification notification): ${errBody}`);
   }
 }
 
@@ -260,7 +262,7 @@ function escHtml(str) {
 async function sendVerificationStatusNotification(request, newStatus) {
   if (!RESEND_API_KEY) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn("[email] RESEND_API_KEY not set — skipping status-change notification");
+      logger.warn({ event: "email_api_key_missing" }, "[email] RESEND_API_KEY not set — skipping status-change notification");
     }
     return;
   }
@@ -288,7 +290,7 @@ async function sendVerificationStatusNotification(request, newStatus) {
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error("[email] Resend error (status-change notification):", errBody);
+    logger.error({ event: "email_resend_status_notification_error", errBody }, `[email] Resend error (status-change notification): ${errBody}`);
   }
 }
 
@@ -397,7 +399,6 @@ function buildStatusChangeText({ request, newStatus, adminUrl }) {
 }
 
 /**
-<<<<<<< HEAD
  * Notify a donor that their recurring donation was cancelled because the project was deactivated.
  *
  * @param {object} opts
@@ -409,7 +410,8 @@ function buildStatusChangeText({ request, newStatus, adminUrl }) {
 async function sendRecurringDonationCancelledEmail({ email, projectName, donationId }) {
   if (!RESEND_API_KEY) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn(
+      logger.warn(
+        { event: "email_api_key_missing" },
         "[email] RESEND_API_KEY not set — skipping recurring donation cancellation notification",
       );
     }
@@ -467,13 +469,30 @@ async function sendRecurringDonationCancelledEmail({ email, projectName, donatio
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error("[email] Resend error (recurring donation cancellation):", errBody);
+    logger.error({ event: "resend_error", err: errBody }, "[email] Resend error (recurring donation cancellation): " + errBody);
   }
 }
 
+async function sendFundingMilestoneEmail({ emails, projectName, percentage, totalRaisedXLM }) {
+  if (!RESEND_API_KEY || !emails?.length) return;
+  const safeName = sanitizeHeader(projectName || "Project");
+  const subject = `Great news! ${safeName} just hit ${percentage}% of its goal`;
+  const text = `Great news! ${safeName} just hit ${percentage}% of its funding goal, with ${totalRaisedXLM} XLM raised.`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [...new Set(emails)],
+      subject,
+      text,
+      html: `<p>${escHtml(text)}</p>`,
+    }),
+  });
+  if (!res.ok) throw new Error(`Milestone email delivery failed (${res.status})`);
+}
+
 /**
-=======
->>>>>>> ibrahim/fix/1148-deactivate-project-cancel-recurring
  * Alert platform admins that a webhook delivery has been abandoned after all
  * retries were exhausted, so the dropped event can be investigated and the
  * project owner can be told to reconcile manually.
@@ -490,7 +509,7 @@ async function sendRecurringDonationCancelledEmail({ email, projectName, donatio
 async function sendWebhookFailureNotification({ deliveryId, url, attempts, lastError } = {}) {
   if (!RESEND_API_KEY) {
     if (process.env.NODE_ENV !== "test") {
-      console.warn("[email] RESEND_API_KEY not set — skipping webhook failure notification");
+      logger.warn({ event: "email_api_key_missing" }, "[email] RESEND_API_KEY not set — skipping webhook failure notification");
     }
     return;
   }
@@ -523,7 +542,7 @@ async function sendWebhookFailureNotification({ deliveryId, url, attempts, lastE
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error("[email] Resend error (webhook failure notification):", errBody);
+    logger.error({ event: "email_resend_webhook_failure_error", errBody }, `[email] Resend error (webhook failure notification): ${errBody}`);
   }
 }
 
@@ -532,5 +551,6 @@ module.exports = {
   sendAdminVerificationNotification,
   sendVerificationStatusNotification,
   sendRecurringDonationCancelledEmail,
+  sendFundingMilestoneEmail,
   sendWebhookFailureNotification,
 };

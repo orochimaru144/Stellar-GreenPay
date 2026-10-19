@@ -15,6 +15,7 @@
  * Icons: Leaflet's built-in SVG divIcon so we avoid broken default-icon paths
  * that occur when Leaflet's image assets are bundled through webpack.
  */
+/// <reference types="leaflet.markercluster" />
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,6 +25,7 @@ import L from "leaflet";
 import type { ClimateProject } from "@/utils/types";
 import { geocodeLocation, jitterCoords } from "@/utils/geocode";
 import ProjectMapMarker from "./ProjectMapMarker";
+import MarkerClusterGroup from "./MarkerClusterGroup";
 
 // ── Fix Leaflet's broken default-icon asset resolution under webpack ───────────
 // Leaflet resolves icon URLs at runtime from `L.Icon.Default.imagePath`; under
@@ -71,14 +73,27 @@ export default function ProjectMap({ projects }: ProjectMapProps) {
   useEffect(() => {
     // Only import once; subsequent HMR reloads skip this because the link
     // element already exists in the document head.
-    if (typeof document !== "undefined" &&
-        !document.head.querySelector('link[href*="leaflet"]')) {
-      const link = document.createElement("link");
-      link.rel  = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-      link.crossOrigin = "anonymous";
-      document.head.appendChild(link);
+    if (typeof document !== "undefined") {
+      if (!document.head.querySelector('link[href*="leaflet@"]')) {
+        const link = document.createElement("link");
+        link.rel  = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+        link.crossOrigin = "anonymous";
+        document.head.appendChild(link);
+      }
+
+      if (!document.head.querySelector('link[href*="MarkerCluster"]')) {
+        const clusterLink = document.createElement("link");
+        clusterLink.rel = "stylesheet";
+        clusterLink.href = "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css";
+        document.head.appendChild(clusterLink);
+
+        const clusterDefaultLink = document.createElement("link");
+        clusterDefaultLink.rel = "stylesheet";
+        clusterDefaultLink.href = "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css";
+        document.head.appendChild(clusterDefaultLink);
+      }
     }
   }, []);
 
@@ -119,7 +134,7 @@ export default function ProjectMap({ projects }: ProjectMapProps) {
               role="button"
               onKeyDown={(e) => handleKeyDown(e, index)}
               onClick={() => window.location.href = `/projects/${project.id}`}
-              className={`p-4 rounded-lg border cursor-pointer transition-all ${
+              className={`p-4 rounded-lg border cursor-pointer transition-all motion-reduce:transition-none ${
                 focusedIndex === index
                   ? 'bg-forest-100 border-forest-500 ring-2 ring-forest-500'
                   : 'bg-white border-forest-200 hover:border-forest-400 hover:bg-forest-50'
@@ -182,18 +197,23 @@ export default function ProjectMap({ projects }: ProjectMapProps) {
       {/* Custom positioned zoom control (bottom-right avoids navbar overlap) */}
       <ZoomControl position="bottomright" />
 
-      {/* Project markers */}
-      {projects.map((project) => {
-        const base     = geocodeLocation(project.location);
-        const position = jitterCoords(base, project.id);
-        return (
-          <ProjectMapMarker
-            key={project.id}
-            project={project}
-            position={[position.lat, position.lng]}
-          />
-        );
-      })}
+      {/* Clustered project markers (clusters below zoom 10, individual markers at zoom 10+) */}
+      <MarkerClusterGroup
+        disableClusteringAtZoom={10}
+        zoomToBoundsOnClick={true}
+      >
+        {projects.map((project) => {
+          const base     = geocodeLocation(project.location);
+          const position = jitterCoords(base, project.id);
+          return (
+            <ProjectMapMarker
+              key={project.id}
+              project={project}
+              position={[position.lat, position.lng]}
+            />
+          );
+        })}
+      </MarkerClusterGroup>
     </MapContainer>
     </>
   );

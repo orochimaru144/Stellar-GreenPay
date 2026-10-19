@@ -2,9 +2,14 @@
   "name": "stellar-greenpay-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
+    "predev": "node scripts/set-contract-env.js",
     "dev": "next dev",
     "dev:docker": "next dev --hostname 0.0.0.0",
+    "prebuild": "node scripts/set-contract-env.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -15,16 +20,20 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@react-leaflet/core": "^3.0.0",
     "@sentry/nextjs": "^10.0.0",
     "@stellar/freighter-api": "^6.0.1",
-    "@stellar/stellar-sdk": "^16.2.0",
+    "@stellar/stellar-sdk": "^17.0.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/leaflet.markercluster": "^1.5.6",
     "@vercel/og": "^0.11.1",
     "axios": "^1.19.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "dayjs": "^1.11.23",
     "html2canvas": "^1.4.1",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "next": "16.2.12",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
@@ -37,6 +46,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.1",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.4.5",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.6.1",
@@ -46,12 +56,12 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.5.4",
-    "eslint": "^10.9.1",
+    "eslint": "^9.22.0",
     "eslint-config-next": "^16.0.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.5.25",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
+    "typescript": "^5.9.3"
   }
 }

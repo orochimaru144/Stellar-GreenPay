@@ -5,6 +5,7 @@
 const express = require("express");
 const router  = express.Router();
 const pool = require("../db/pool");
+const logger = require("../logger");
 const { mapProfileRow } = require("../services/store");
 const { createRateLimiter } = require("../middleware/rateLimiter");
 const { sanitizedStringField, validateBody } = require("../middleware/validation");
@@ -32,9 +33,10 @@ const profilePatchSchema = z.object({
   displayName: sanitizedStringField({ required: false, maxLength: 30, message: "must not contain HTML" }).optional(),
   bio: sanitizedStringField({ required: false, maxLength: 300, message: "must not contain HTML" }).optional(),
   avatarUrl: avatarUrlField,
+  milestoneNotificationsEnabled: z.boolean().optional(),
 }).refine(
-  (body) => body.displayName !== undefined || body.bio !== undefined || body.avatarUrl !== undefined,
-  { message: "At least one of displayName, bio, or avatarUrl is required" },
+  (body) => body.displayName !== undefined || body.bio !== undefined || body.avatarUrl !== undefined || body.milestoneNotificationsEnabled !== undefined,
+  { message: "At least one profile setting is required" },
 );
 
 router.get("/:publicKey", async (req, res, next) => {
@@ -95,7 +97,7 @@ router.post("/", profilePostLimiter, validateBody(profileSchema), async (req, re
 
     if (normalizedAvatarUrl) {
       enqueueAvatarProcessing(publicKey, normalizedAvatarUrl).catch((err) => {
-        console.error("[profiles] Failed to enqueue avatar processing:", err.message);
+        logger.error({ event: "avatar_processing_enqueue_failed", err: err.message }, "[profiles] Failed to enqueue avatar processing: " + err.message);
       });
     }
 
@@ -132,6 +134,10 @@ router.patch("/:publicKey", profilePostLimiter, validateBody(profilePatchSchema)
       values.push(avatar);
       sets.push(`avatar_url = $${values.length}`);
     }
+    if (req.body.milestoneNotificationsEnabled !== undefined) {
+      values.push(req.body.milestoneNotificationsEnabled);
+      sets.push(`milestone_notifications_enabled = $${values.length}`);
+    }
 
     sets.push("updated_at = NOW()");
     values.push(req.params.publicKey);
@@ -149,7 +155,7 @@ router.patch("/:publicKey", profilePostLimiter, validateBody(profilePatchSchema)
 
     if (newAvatarUrl) {
       enqueueAvatarProcessing(req.params.publicKey, newAvatarUrl).catch((err) => {
-        console.error("[profiles] Failed to enqueue avatar processing:", err.message);
+        logger.error({ event: "avatar_processing_enqueue_failed", err: err.message }, "[profiles] Failed to enqueue avatar processing: " + err.message);
       });
     }
 

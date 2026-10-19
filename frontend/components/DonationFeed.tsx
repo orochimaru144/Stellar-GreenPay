@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchProjectDonations } from "@/lib/api";
-import { formatXLM, timeAgo, shortenAddress } from "@/utils/format";
+import { formatAmount, formatXLM, timeAgo, shortenAddress } from "@/utils/format";
 import { explorerUrl, streamProjectPayments } from "@/lib/stellar";
 import type { Donation } from "@/utils/types";
 
@@ -183,14 +183,14 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
           role="status"
           className={`flex items-center gap-2 ${wrapperClass} text-xs text-amber-700 dark:text-amber-400 font-body`}
         >
-          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
           Connection lost — reconnecting…
         </div>
       );
     }
     return (
       <div className={`flex items-center gap-2 ${wrapperClass} text-xs text-forest-500 font-body`}>
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
         {label}
       </div>
     );
@@ -199,7 +199,7 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
   if (loading) return (
     <div className="space-y-3">
       {[1, 2, 3].map(i => (
-        <div key={i} className="animate-pulse flex gap-3 p-3 rounded-xl bg-forest-50">
+        <div key={i} className="animate-pulse motion-reduce:animate-none flex gap-3 p-3 rounded-xl bg-forest-50">
           <div className="w-8 h-8 rounded-full bg-forest-200 flex-shrink-0" />
           <div className="flex-1 space-y-2">
             <div className="h-3 bg-forest-200 rounded w-1/2" />
@@ -213,7 +213,7 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
   if (donations.length === 0) return (
     <div>
       {renderLiveStatus("Listening for live donations…", "mb-3")}
-      <p className="text-center text-[#5a7a5a] dark:text-[#8aaa8a] text-sm py-6 font-body">No donations yet — be the first! 🌱</p>
+      <p className="text-center text-[var(--text-secondary)] dark:text-[#8aaa8a] text-sm py-6 font-body">No donations yet — be the first! 🌱</p>
     </div>
   );
 
@@ -223,9 +223,9 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
       {donations.map((d) => (
         <div
           key={d.id}
-          className={`flex items-start gap-3 p-3 rounded-xl bg-forest-50 hover:bg-forest-100 transition-all duration-500 ${
+          className={`flex items-start gap-3 p-3 rounded-xl bg-forest-50 hover:bg-forest-100 transition-all motion-reduce:transition-none duration-500 ${
             newIds.has(d.id)
-              ? "animate-slide-in ring-2 ring-emerald-400/50 bg-emerald-50"
+              ? "animate-slide-in motion-reduce:animate-none ring-2 ring-emerald-400/50 bg-emerald-50"
               : ""
           }`}
         >
@@ -236,7 +236,7 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-forest-900 text-sm font-body">{shortenAddress(d.donorAddress, 5)}</span>
               <span className="font-mono font-bold text-forest-600 text-sm">
-                {d.currency === "USDC" ? `$${parseFloat(d.amount || "0").toFixed(2)} USDC` : formatXLM(d.amountXLM || d.amount || "0")}
+                {d.currency === "USDC" ? `$${formatAmount(parseFloat(d.amount || "0"))} USDC` : formatXLM(d.amountXLM || d.amount || "0")}
               </span>
               {d.isMatched && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-body font-semibold">
@@ -249,9 +249,9 @@ export default function DonationFeed({ projectId, walletAddress, refreshKey = 0,
                 </span>
               )}
             </div>
-            {d.message && <p className="text-xs text-[#5a7a5a] dark:text-[#8aaa8a] mt-0.5 italic font-body">&quot;{d.message}&quot;</p>}
+            {d.message && <p className="text-xs text-[var(--text-secondary)] dark:text-[#8aaa8a] mt-0.5 italic font-body">&quot;{d.message}&quot;</p>}
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-[#8aaa8a] dark:text-forest-300 font-body">{timeAgo(d.createdAt)}</span>
+              <span className="text-xs text-[var(--text-tertiary)] dark:text-forest-300 font-body">{timeAgo(d.createdAt)}</span>
               <a href={explorerUrl(d.transactionHash)} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-forest-500 hover:text-forest-700 transition-colors font-body">
                 View tx ↗

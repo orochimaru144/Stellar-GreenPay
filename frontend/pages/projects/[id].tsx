@@ -15,6 +15,7 @@ import MonthlyGivingSetup from "@/components/MonthlyGivingSetup";
 import DescriptionAccordion from "@/components/DescriptionAccordion";
 import WalletAddressQRCode from "@/components/WalletAddressQRCode";
 import ProjectProgressBar from "@/components/ProjectProgressBar";
+import ProjectImage from "@/components/ProjectImage";
 import {
   fetchProject,
   fetchProjectUpdates,
@@ -26,7 +27,6 @@ import {
   toggleUpdateLike,
   followProject,
   unfollowProject,
-  fetchProjectReviews,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { formatXLM, formatCO2, progressPercent, timeAgo, statusClass, statusLabel, CATEGORY_ICONS, copyToClipboard, shortenAddress } from "@/utils/format";
@@ -36,7 +36,6 @@ import type {
   ClimateProject,
   Donation,
   ProjectCampaign,
-  ProjectReview,
   ProjectUpdate,
 } from "@/utils/types";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -103,11 +102,6 @@ export default function ProjectDetail({
   const [isFollowing, setIsFollowing] = useState(false);
   const [followCount, setFollowCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
-  const [reviews, setReviews] = useState<ProjectReview[]>([]);
-  const [reviewsTotal, setReviewsTotal] = useState(0);
-  const [reviewsOffset, setReviewsOffset] = useState(0);
-  const [reviewsHasMore, setReviewsHasMore] = useState(false);
-  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
 
   // Stable per-particle randomness for the completion celebration animation.
   // A useState lazy initializer (unlike useMemo, which React may recompute
@@ -150,18 +144,15 @@ export default function ProjectDetail({
       .finally(() => setLoading(false));
   }, [id, publicKey, router]);
 
-  const projectWalletAddress = project?.walletAddress;
-  const projectId = project?.id;
-
-  const discussionLoading = Boolean(project) && discussionLoadedFor !== projectWalletAddress;
+  const discussionLoading = Boolean(project) && discussionLoadedFor !== project?.walletAddress;
 
   useEffect(() => {
-    if (!projectWalletAddress) return;
-    fetchProjectDiscussion(projectWalletAddress, 50)
+    if (!project) return;
+    fetchProjectDiscussion(project.walletAddress, 50)
       .then(setDiscussion)
       .catch(() => setDiscussion([]))
-      .finally(() => setDiscussionLoadedFor(projectWalletAddress));
-  }, [projectWalletAddress]);
+      .finally(() => setDiscussionLoadedFor(project.walletAddress));
+  }, [project?.walletAddress]);
 
   useEffect(() => {
     if (!id) return;
@@ -170,61 +161,9 @@ export default function ProjectDetail({
       .catch(() => null);
   }, [id]);
 
-  // Load the first page of donor reviews. Re-runs when the donation feed
-  // signals a new donation (refreshKey) so fresh reviews appear without a
-  // manual reload.
-  //
-  // `reviewsLoading` is derived by comparing the in-flight request to the
-  // last one that resolved, rather than toggled synchronously inside the
-  // effect (which triggers a cascading render).
-  const reviewsRequestKey = `${id}:${refreshKey}`;
-  const [reviewsLoadedKey, setReviewsLoadedKey] = useState<string | null>(null);
-  const reviewsLoading = reviewsLoadedKey !== reviewsRequestKey;
-
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    fetchProjectReviews(id as string, { limit: 5, offset: 0 })
-      .then((res) => {
-        if (cancelled) return;
-        setReviews(res.data);
-        setReviewsTotal(res.pagination.total);
-        setReviewsOffset(res.data.length);
-        setReviewsHasMore(res.pagination.has_more);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setReviews([]);
-        setReviewsTotal(0);
-        setReviewsHasMore(false);
-      })
-      .finally(() => {
-        if (!cancelled) setReviewsLoadedKey(reviewsRequestKey);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id, refreshKey, reviewsRequestKey]);
-
-  const handleLoadMoreReviews = async () => {
-    if (!id || reviewsLoading || loadingMoreReviews) return;
-    setLoadingMoreReviews(true);
-    try {
-      const res = await fetchProjectReviews(id as string, { limit: 5, offset: reviewsOffset });
-      setReviews((prev) => [...prev, ...res.data]);
-      setReviewsTotal(res.pagination.total);
-      setReviewsOffset((prev) => prev + res.data.length);
-      setReviewsHasMore(res.pagination.has_more);
-    } catch {
-      // keep the already-loaded reviews on failure
-    } finally {
-      setLoadingMoreReviews(false);
-    }
-  };
-
   // Subscribe to badge_earned WebSocket events for this project
   useEffect(() => {
-    if (!projectId) return;
+    if (!project) return;
     let socket: any = null;
     let mounted = true;
 
@@ -234,13 +173,9 @@ export default function ProjectDetail({
         const base = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
         socket = io(base, { path: "/socket.io", transports: ["websocket"] });
 
-        socket.on("connect", () => {
-          socket.emit("join_project", projectId);
-        });
-
         socket.on("badge_earned", (payload: { donorAddress: string; badge: string; projectId: string }) => {
           if (!mounted) return;
-          if (payload.projectId !== projectId) return;
+          if (payload.projectId !== project.id) return;
           setToasts((prev) => [
             ...prev,
             {
@@ -259,15 +194,12 @@ export default function ProjectDetail({
     return () => {
       mounted = false;
       try {
-        if (socket) {
-          socket.emit("leave_project", projectId);
-          if (typeof socket.disconnect === "function") socket.disconnect();
-        }
+        if (socket && typeof socket.disconnect === "function") socket.disconnect();
       } catch (e) {
         // ignore
       }
     };
-  }, [projectId]);
+  }, [project?.id]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setCountdownNow(Date.now()), 1000);
@@ -812,7 +744,7 @@ export default function ProjectDetail({
 
   if (loading || !project)
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-pulse">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-pulse motion-reduce:animate-none">
         <div className="h-8 bg-forest-200 rounded w-2/3 mb-4" />
         <div className="card space-y-4">
           {[1, 2, 3].map((i) => (
@@ -856,22 +788,9 @@ export default function ProjectDetail({
     : ogProject?.imageUrl || `${appUrl}/og-default.png`;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 pb-24 sm:pb-10 animate-fade-in">
-      <Head>
-        <title>{ogTitle}</title>
-        <meta name="greenpay:project:id" content={project.id} />
-        <meta name="description" content={ogDescription} />
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content={ogTitle} />
-        <meta property="og:description" content={ogDescription} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={ogTitle} />
-        <meta name="twitter:description" content={ogDescription} />
-        <meta name="twitter:image" content={ogImage} />
-      </Head>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 pb-24 sm:pb-10 animate-fade-in motion-reduce:animate-none">
+      <ProjectHeadMeta project={project} ogProject={ogProject} />
+
       <ToastNotification
         toasts={toasts}
         onDismiss={(toastId) => setToasts((prev) => prev.filter((t) => t.id !== toastId))}
@@ -892,7 +811,7 @@ export default function ProjectDetail({
 
       <Link
         href="/projects"
-        className="inline-flex items-center gap-1 text-sm text-[#4f6f4f] dark:text-[#8aaa8a] hover:text-forest-700 transition-colors mb-6 font-body"
+        className="inline-flex items-center gap-1 text-sm text-[#4f6f4f] dark:text-forest-400 hover:text-forest-700 transition-colors mb-6 font-body"
       >
         ← Back to Projects
       </Link>
@@ -990,10 +909,10 @@ export default function ProjectDetail({
           <div className="card">
             {project.imageUrl ? (
               <div className="mb-5 overflow-hidden rounded-3xl border border-forest-100 bg-forest-50">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <ProjectImage
                   src={project.imageUrl}
-                  alt={project.name}
+                  name={project.name}
+                  description={project.description}
                   className="h-56 w-full object-cover"
                 />
               </div>
@@ -1083,7 +1002,7 @@ export default function ProjectDetail({
                   {project.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                  <p className="text-[#4f6f4f] dark:text-[#8aaa8a] text-sm font-body">
+                  <p className="text-[#4f6f4f] dark:text-forest-400 text-sm font-body">
                     📍 {project.location}
                   </p>
                   {(project.averageRating || 0) > 0 && (
@@ -1297,7 +1216,7 @@ export default function ProjectDetail({
                   {project.aiSummary}
                 </p>
               ) : (
-                <p className="text-sm text-[#4f6f4f] dark:text-[#8aaa8a] italic font-body">
+                <p className="text-sm text-[#4f6f4f] dark:text-forest-400 italic font-body">
                   No AI summary yet. Click &ldquo;Generate summary&rdquo; to create one for donors.
                 </p>
               )}
@@ -1333,80 +1252,6 @@ export default function ProjectDetail({
                   </span>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Donor reviews — star summary plus a paginated list of the
-              most recent reviews, so future donors can see what others
-              experienced. */}
-          <div className="card">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg font-semibold text-forest-900">
-                Donor Reviews
-              </h2>
-              {(project.ratingCount || 0) > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-amber-400 text-lg" aria-hidden="true">★</span>
-                  <span className="font-bold text-forest-900 font-body">
-                    {(project.averageRating || 0).toFixed(1)}
-                  </span>
-                  <span className="text-xs text-[#8aaa8a] dark:text-forest-300 font-body">
-                    ({project.ratingCount} review{project.ratingCount === 1 ? "" : "s"})
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {reviewsLoading && reviews.length === 0 ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="animate-pulse h-12 bg-forest-100 rounded-xl" />
-                ))}
-              </div>
-            ) : reviews.length === 0 ? (
-              <p className="text-sm text-[#4f6f4f] dark:text-[#8aaa8a] font-body">
-                No reviews yet. Donate to this project and be the first to share your experience.
-              </p>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {reviews.map((r, i) => (
-                    <div
-                      key={`${r.donorAddress}-${i}`}
-                      className="pb-4 border-b border-forest-100 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-amber-400 text-sm tracking-wide" aria-label={`${r.rating} out of 5 stars`}>
-                            {"★".repeat(r.rating)}
-                            <span className="text-forest-200">{"★".repeat(5 - r.rating)}</span>
-                          </span>
-                          <span className="text-xs font-semibold text-forest-700 font-body">
-                            {shortenAddress(r.donorAddress)}
-                          </span>
-                        </div>
-                        <span className="text-xs text-[#8aaa8a] dark:text-forest-300 font-body">
-                          {timeAgo(r.createdAt)}
-                        </span>
-                      </div>
-                      {r.review && (
-                        <p className="text-sm text-forest-900/90 leading-relaxed font-body">
-                          {r.review}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {reviewsHasMore && (
-                  <button
-                    onClick={handleLoadMoreReviews}
-                    disabled={loadingMoreReviews}
-                    className="btn-secondary text-sm py-2 px-4 mt-4 disabled:opacity-60"
-                  >
-                    {loadingMoreReviews ? "Loading…" : `Load more reviews (${reviewsTotal - reviews.length} remaining)`}
-                  </button>
-                )}
-              </>
             )}
           </div>
 
@@ -1471,7 +1316,7 @@ export default function ProjectDetail({
                         Completed
                       </span>
                     </div>
-                    <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] font-body mb-2">
+                    <p className="text-xs text-[#4f6f4f] dark:text-forest-400 font-body mb-2">
                       Ended {new Date(campaign.deadline).toLocaleDateString()}
                     </p>
                     <div className="flex justify-between text-xs mb-1 font-body">
@@ -1499,7 +1344,7 @@ export default function ProjectDetail({
             <h2 className="font-display text-lg font-semibold text-forest-900 mb-2">
               Campaign Creator
             </h2>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] font-body mb-4">
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 font-body mb-4">
               Project admins can launch a time-limited campaign with a custom
               goal and deadline.
             </p>
@@ -1583,7 +1428,7 @@ export default function ProjectDetail({
               {t("project.projectUpdates")}
             </h2>
             {updates.length === 0 ? (
-              <p className="text-sm text-[#4f6f4f] dark:text-[#8aaa8a] font-body">{t("project.noUpdatesYet")}</p>
+              <p className="text-sm text-[#4f6f4f] dark:text-forest-400 font-body">{t("project.noUpdatesYet")}</p>
             ) : (
               <div className="space-y-4">
                 {updates.map((u) => {
@@ -1602,7 +1447,7 @@ export default function ProjectDetail({
                         </span>
                       </div>
                       <div
-                        className="text-[#4f6f4f] dark:text-[#8aaa8a] text-sm leading-relaxed font-body prose prose-sm max-w-none"
+                        className="text-[#4f6f4f] dark:text-forest-400 text-sm leading-relaxed font-body prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(u.body) }}
                       />
                       <div className="flex items-center gap-3 mt-2">
@@ -1661,14 +1506,14 @@ export default function ProjectDetail({
               </h2>
               <span className="text-xs text-[#4f6f4f] dark:text-forest-300 font-body">On-chain memos</span>
             </div>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] font-body mb-4">
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 font-body mb-4">
               Discuss by donating — messages are Stellar transaction memos from real donations.
             </p>
 
             {discussionLoading ? (
-              <p className="text-sm text-[#4f6f4f] dark:text-[#8aaa8a] font-body">Loading discussion…</p>
+              <p className="text-sm text-[#4f6f4f] dark:text-forest-400 font-body">Loading discussion…</p>
             ) : discussion.length === 0 ? (
-              <p className="text-sm text-[#4f6f4f] dark:text-[#8aaa8a] font-body">
+              <p className="text-sm text-[#4f6f4f] dark:text-forest-400 font-body">
                 No memo messages yet. Be the first to leave a message with your donation.
               </p>
             ) : (
@@ -1732,7 +1577,7 @@ export default function ProjectDetail({
           {/* Impact Calculator */}
           <div className="card bg-forest-50 border-forest-200">
             <h3 className="font-display font-semibold text-forest-900 mb-2">Impact Calculator</h3>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] mb-3 font-body">See what your donation can achieve before you give.</p>
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 mb-3 font-body">See what your donation can achieve before you give.</p>
             
             <div className="flex flex-wrap gap-2 mb-3">
               {["10", "25", "50", "100", "250"].map(p => (
@@ -1806,25 +1651,17 @@ export default function ProjectDetail({
             </div>
           ) : (
             <div>
-              <p className="text-center text-[#4f6f4f] dark:text-[#8aaa8a] text-sm mb-4 font-body">
+              <p className="text-center text-[#4f6f4f] dark:text-forest-400 text-sm mb-4 font-body">
                 Connect your wallet to donate
               </p>
               <WalletConnect onConnect={onConnect} />
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowMonthlySetup(true)}
-            className="btn-secondary w-full text-sm"
-          >
-            Give monthly
-          </button>
-
           {/* Share card */}
           <div className="card text-center bg-forest-50 border-forest-200">
             <p className="font-display font-semibold text-forest-900 mb-2">Spread the word 🌍</p>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] mb-3 font-body">Share this project with friends and family to increase its impact.</p>
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 mb-3 font-body">Share this project with friends and family to increase its impact.</p>
             
             <div className="grid grid-cols-3 gap-2 mb-3">
               <button
@@ -1869,7 +1706,7 @@ export default function ProjectDetail({
             <p className="font-display font-semibold text-forest-900 mb-2">
               Impact Report 📊
             </p>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] mb-3 font-body">
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 mb-3 font-body">
               Download a print-friendly summary of this project&apos;s progress and
               impact.
             </p>
@@ -1886,7 +1723,7 @@ export default function ProjectDetail({
             <p className="font-display font-semibold text-forest-900 mb-1">
               Get project updates 🔔
             </p>
-            <p className="text-xs text-[#4f6f4f] dark:text-[#8aaa8a] mb-3 font-body">
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 mb-3 font-body">
               Receive an email when this project posts new updates.
             </p>
             {subscriberCount !== null && (
@@ -1929,6 +1766,7 @@ export default function ProjectDetail({
         <MonthlyGivingSetup
           projectId={project.id}
           projectName={project.name}
+          donorAddress={publicKey}
           onClose={() => setShowMonthlySetup(false)}
         />
       )}

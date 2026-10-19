@@ -51,7 +51,7 @@ export default function ComparePage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-pulse">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-pulse motion-reduce:animate-none">
         <div className="h-8 bg-forest-200 rounded w-1/3 mb-6" />
         <div className="space-y-4">
           {[1, 2].map((i) => (
@@ -73,7 +73,7 @@ export default function ComparePage() {
           <h2 className="font-display text-xl font-semibold text-forest-900 mb-2">
             Could not load projects
           </h2>
-          <p className="text-[#5a7a5a] dark:text-[#8aaa8a] text-sm font-body mb-6">
+          <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] text-sm font-body mb-6">
             {error}
           </p>
           <Link
@@ -98,10 +98,10 @@ export default function ComparePage() {
           <h2 className="font-display text-xl font-semibold text-forest-900 mb-2">
             Compare Projects
           </h2>
-          <p className="text-[#5a7a5a] dark:text-[#8aaa8a] text-sm font-body mb-4">
+          <p className="text-[var(--text-secondary)] dark:text-[#8aaa8a] text-sm font-body mb-4">
             Add project IDs to the URL to compare them side by side.
           </p>
-          <p className="text-xs text-[#8aaa8a] dark:text-forest-300 font-mono bg-forest-50 rounded-lg p-3 inline-block">
+          <p className="text-xs text-[var(--text-tertiary)] dark:text-forest-300 font-mono bg-forest-50 rounded-lg p-3 inline-block">
             /compare?ids=uuid1,uuid2,uuid3
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-fade-in motion-reduce:animate-none">
       <Head>
         <title>
           Compare {projects.map((p) => p.name).join(" vs ")} — Stellar GreenPay
@@ -152,7 +152,7 @@ export default function ComparePage() {
 
       <Link
         href="/projects"
-        className="inline-flex items-center gap-1 text-sm text-[#5a7a5a] dark:text-[#8aaa8a] hover:text-forest-700 transition-colors mb-6 font-body"
+        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] dark:text-[#8aaa8a] hover:text-forest-700 transition-colors mb-6 font-body"
       >
         ← Back to Projects
       </Link>
